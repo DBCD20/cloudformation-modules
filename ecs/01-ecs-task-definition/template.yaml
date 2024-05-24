@@ -1,0 +1,81 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+
+
+Parameters:
+  ApplicationName:
+    Type: String
+    Default: test-nginx-server
+
+  Port:
+    Type: Number
+    Default: 80
+    Description: Port to open to receieve and send traffic to.
+
+  ImageName:
+    Type: String
+    Default: httpd
+    Description: The image used to start a container. This string is passed directly to the Docker daemon. By default, images in the Docker Hub registry are available. 
+  
+  Cpu:
+    Type: String
+    Default: '256'
+    Description: The number of cpu units used by the task. If you use the EC2 launch type, this field is optional. The CPU units cannot be less than 1 vCPU when you use Windows containers on Fargate.
+
+  Memory:
+    Type: String
+    Default: '512'
+    Description: The amount (in MiB) of memory used by the task.
+  
+  TaskDefinitionFamily:
+    Default: WebServer
+    Type: String
+    Description: The name of a family that this task definition is registered to.
+    AllowedPattern: ^[a-zA-Z0-9_-]*$
+    ConstraintDescription: Up to 255 letters (uppercase and lowercase), numbers, hyphens, and underscores are allowed.
+  
+  OperatingSystemFamily:
+    Type: String
+    Default: "LINUX"
+    AllowedValues: ["WINDOWS_SERVER_2019_FULL","WINDOWS_SERVER_2019_CORE","WINDOWS_SERVER_2016_FULL","WINDOWS_SERVER_2004_CORE","WINDOWS_SERVER_2022_CORE","WINDOWS_SERVER_2022_FULL","WINDOWS_SERVER_20H2_CORE","LINUX"]
+
+Resources:
+  ECSTaskDefinition:
+    Type: 'AWS::ECS::TaskDefinition'
+    Properties:
+      ContainerDefinitions:
+      - Name: !Ref ApplicationName
+        Image: !Ref ImageName
+        Essential: true
+        LogConfiguration:
+          LogDriver: "awslogs"
+          Options:
+            awslogs-create-group: "true"
+            awslogs-group: !Sub "/ecs/"
+            awslogs-region: "ap-southeast-1"
+            awslogs-stream-prefix: "ecs"
+        PortMappings:
+        - ContainerPort: !Ref Port
+          HostPort: !Ref Port
+          Protocol: 'tcp'
+          AppProtocol: http
+      ExecutionRoleArn: !Sub 'arn:aws:iam::${AWS::AccountId}:role/ecsTaskExecutionRole'
+      Family: !Ref TaskDefinitionFamily
+      NetworkMode: "awsvpc"
+      RequiresCompatibilities:
+        - "FARGATE"
+      Cpu:    !Ref Cpu
+      Memory: !Ref Memory
+      RuntimePlatform:
+        CpuArchitecture: "X86_64"
+        OperatingSystemFamily: !Ref OperatingSystemFamily
+  
+Outputs:
+  ECSTaskDefinition:
+    Description: ECS Task Definition Name.
+    Value: !Ref ApplicationName
+
+  ECSTaskDefinitionFamily:
+    Description: ECS Task Definition Family.
+    Value: !Ref TaskDefinitionFamily
+

@@ -1,0 +1,41 @@
+[
+    {
+        "ParameterKey": "ApplicationName",
+        "ParameterValue": "test-ecs-service"
+    },
+    {
+        "ParameterKey": "PrivateSubnetIds",
+        "ParameterValue": "subnet-09941b39be5bcb170,subnet-0214a761d508b27e4,subnet-0bcf54ff65e3faf5d"
+    },    
+    {
+        "ParameterKey": "PublicSubnetIds",
+        "ParameterValue": "subnet-03f53d6db1b1fa7aa,subnet-0829f2a545a8eaa2c,subnet-0640426e5551acde6"
+    },
+    {
+        "ParameterKey": "VpcCidrBlock",
+        "ParameterValue": "10.0.0.0/16"
+    },
+    {
+        "ParameterKey": "VPCId",
+        "ParameterValue": "vpc-0e6e5194aae3fccc2"
+    },
+    {
+        "ParameterKey": "TaskDefinition",
+        "ParameterValue": "arn:aws:ecs:ap-southeast-1:351700203272:task-definition/my-httpd:2"
+    },
+    {"ParameterKey": "ContainerName",
+    "ParameterValue": "my-httpd"
+    },
+    {
+        "ParameterKey": "ClusterName",
+        "ParameterValue": "dmagsipoc-test-fargate"
+    },
+    {
+        "ParameterKey": "TGName",
+        "ParameterValue": "ecs-service-tg"
+    },
+    {
+        "ParameterKey": "LoadBalancerScheme",
+        "ParameterValue": "internet-facing"
+    }
+]

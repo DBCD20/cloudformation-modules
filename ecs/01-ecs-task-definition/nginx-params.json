@@ -1,0 +1,14 @@
+[
+    {
+        "ParameterKey": "ApplicationName",
+        "ParameterValue": "my-nginx"
+    },
+    {
+        "ParameterKey": "TaskDefinitionFamily",
+        "ParameterValue": "my-nginx"
+    },
+    {
+        "ParameterKey": "ImageName",
+        "ParameterValue": "nginx"
+    }
+]

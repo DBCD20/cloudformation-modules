@@ -1,0 +1,10 @@
+[
+    {
+        "ParameterKey": "ApplicationName",
+        "ParameterValue": "my-httpd"
+    },
+    {
+        "ParameterKey": "TaskDefinitionFamily",
+        "ParameterValue": "my-httpd"
+    }
+]

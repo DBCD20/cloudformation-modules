@@ -1,0 +1,26 @@
+[
+    {
+        "ParameterKey": "DesiredCapacity",
+        "ParameterValue": "1"
+    },
+    {
+        "ParameterKey": "MaxSize",
+        "ParameterValue": "3"
+    },
+    {
+        "ParameterKey": "SubnetIds",
+        "ParameterValue": "subnet-0bcf54ff65e3faf5d,subnet-09941b39be5bcb170,subnet-0214a761d508b27e4"
+    },
+    {
+        "ParameterKey": "VpcId",
+        "ParameterValue": "vpc-0e6e5194aae3fccc2"
+    },
+    {
+        "ParameterKey": "VpcCidrBlock",
+        "ParameterValue": "10.0.0.0/16"
+    },
+    {
+        "ParameterKey": "ClusterName",
+        "ParameterValue": "test-ecs"
+    }
+]

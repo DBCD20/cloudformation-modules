@@ -1,0 +1,260 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Creates ECS Service that run and maintain specific number of tasks and associated load balancers.
+
+Parameters:
+  
+  ApplicationName:
+    Type: String
+    Description: The short name or full Amazon Resource Name (ARN) of the cluster that you run your service on.
+
+  ContainerName:
+    Type: String
+    Description: The name of the container (as it appears in a container definition) to associate with the load balancer.
+  
+  ContainerPort:
+    Type: Number
+    Description: The port on the container to associate with the load balancer. This port must correspond to a containerPort in the task definition the tasks in the service are using.
+    Default: 80
+  
+  DesiredCount:
+    Type: Number
+    Description: The number of instantiations of the specified task definition to place and keep running in your service.
+    Default: 1
+
+  HealthCheckGracePeriodSeconds:
+    Type: Number
+    Description: The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started.
+    Default: 60
+
+  DeploymentController:
+    Type: String
+    AllowedValues: ["CODE_DEPLOY", "ECS", "EXTERNAL"]
+    Default: "ECS"
+  
+  EnableExecuteCommand:
+    Type: String
+    Description: Determines whether the execute command functionality is turned on for the service. If true, the execute command functionality is turned on for all containers in tasks as part of the service.
+    AllowedValues: ["Yes", "No"]
+    Default: No
+
+  PrivateSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: List of private subnet IDs where the ecs fargate service will be launched
+
+  PublicSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: List of public subnet IDs where the application load balancer will be launched
+  
+  ExistingListener:
+    Description: ARN of alb listener if already provisioned
+    Type: String
+    Default: "None"
+
+  ALBListenerProtocol:
+    Description: ALB listener protocol
+    Type: String
+    AllowedValues: ["HTTP", "HTTPS"]
+    Default: "HTTP"
+
+  ALBListenerPort:
+    Description: ALB Listener port
+    Type: Number
+    Default: 80
+
+  ExistingTargetGroup:
+    Description: ARN of already provisioned target group to be used by ECS service
+    Type: String
+    Default: "None"
+
+  TGName:
+    Description: Target group name
+    Type: String
+
+  TGHealthCheckProtocol:
+    Description: Target group health check protocol
+    Type: String
+    Default: "HTTP"
+
+  TaskDefinition:
+    Type: String
+    Description: The family and revision (family:revision) or full ARN of the task definition to run in your service. If a revision isn't specified, the latest ACTIVE revision is used.
+
+  ServiceName:
+    Type: String
+    Default: test-cfn-template
+  
+  ClusterName:
+    Type: String
+    Description: The short name or full Amazon Resource Name (ARN) of the cluster that you run your service on.
+
+  EnableExecuteCommand:
+    Description: Enable execute command in container, same as CMD in dockerfile
+    Type: String 
+    AllowedValues: [Yes, No]
+    Default: No
+
+  LoadBalancer:
+    Type: String
+    Default: "None"
+  
+  VPCId:
+    Description: Vpc Id where your resource will be deployed
+    Type: String
+
+  VpcCidrBlock:
+    Description: CIDR block of your vpc e.g 10.0.0.0/16
+    Type: String
+
+  LoadBalancerScheme:
+    Description: How would the load balancer be exposed [internet-facing, internal]
+    Type: String
+    AllowedValues:
+    - "internet-facing"
+    - "internal"
+    Default: internal
+
+Conditions:
+  ExistingLoadBalancer: !Equals [ !Ref LoadBalancer, "None" ]
+  ExistingTargetGroup:  !Equals [!Ref ExistingTargetGroup, "None"]
+  ExistingListener:     !Equals [!Ref ExistingListener, "None"]
+  ExternalLB:           !Equals [!Ref LoadBalancerScheme, "internet-facing"]
+    
+Resources:
+  ECSService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref ClusterName
+      DeploymentConfiguration: 
+        DeploymentCircuitBreaker:
+          Enable: true
+          Rollback: true
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+      DeploymentController: 
+        Type: !Ref DeploymentController
+      DesiredCount: !Ref DesiredCount
+      EnableExecuteCommand: !Ref EnableExecuteCommand
+      HealthCheckGracePeriodSeconds: !Ref HealthCheckGracePeriodSeconds
+      LaunchType: FARGATE
+      LoadBalancers: 
+      - ContainerPort: !Ref ContainerPort
+        TargetGroupArn:  !Ref ECSLoadBalancerTargetGroup
+        ContainerName: !Ref ContainerName
+      NetworkConfiguration: 
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          SecurityGroups: [ !Ref ECSLoadBalancerSecurityGroup ]
+          Subnets: !Ref PrivateSubnetIds
+      PlatformVersion: "LATEST"
+      SchedulingStrategy: REPLICA
+      TaskDefinition: !Ref TaskDefinition
+      ServiceName: !Ref ServiceName
+      Tags:
+      - Key: ExistingListenerRule
+        Value: !If [ExistingListener, !Ref ECSLoadBalancerListenerRule, !Ref ExistingListener]
+
+# -------------------------------------------------------
+#         CREATE APPLICATION LOAD BALANCER
+# -------------------------------------------------------
+  ECSLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Condition: ExistingLoadBalancer
+    Properties:
+      IpAddressType: ipv4
+      Type: application
+      Name: !Sub "${ApplicationName}-ecs-alb"
+      Scheme: !Ref LoadBalancerScheme
+      SecurityGroups: 
+        - !Ref ECSLoadBalancerSecurityGroup
+      Subnets: !If [ExternalLB, !Ref PublicSubnetIds, !Ref PrivateSubnetIds ]
+
+# CREATE SECURITY GROUP FOR LOAD BALANCER
+  ECSLoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Condition: ExistingLoadBalancer
+    Properties:
+      GroupName: !Sub "${ApplicationName}-ecs-alb-sg"
+      GroupDescription: Allow HTTP and HTTPS access on load balancer
+      VpcId: !Ref VPCId
+      SecurityGroupIngress: 
+      - Description: Allow HTTP traffic from VPC
+        CidrIp: !If [ExternalLB, "0.0.0.0/0",  !Ref VpcCidrBlock ] 
+        FromPort: 80
+        ToPort: 80
+        IpProtocol: tcp
+      - Description: Allow HTTP traffic from VPC
+        CidrIp: !If [ExternalLB, "0.0.0.0/0",  !Ref VpcCidrBlock ]
+        FromPort: 443
+        ToPort: 443
+        IpProtocol: tcp
+
+# CREATE TARGET GROUP FOR LOAD BALANCER
+  ECSLoadBalancerTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Condition: ExistingTargetGroup
+    Properties:
+      Name: !Ref TGName
+      HealthCheckPath: /
+      HealthCheckProtocol: !Ref TGHealthCheckProtocol
+      Port: !Ref ALBListenerPort
+      Protocol: !Ref ALBListenerProtocol
+      TargetType: ip
+      UnhealthyThresholdCount: 2
+      VpcId: !Ref VPCId
+
+# CREATE ALB LISTENER
+  ECSLoadBalancerListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Condition: ExistingListener
+    # DependsOn:
+    # - ECSLoadBalancerTargetGroup
+    Properties:
+      DefaultActions:
+        - Type: 'redirect'
+          RedirectConfig:
+              Protocol: "#{protocol}"
+              Port: "#{port}"
+              Host: "#{host}"
+              Path: "/"
+              StatusCode: "HTTP_301"
+      LoadBalancerArn: !If [ExistingLoadBalancer, !Ref 'ECSLoadBalancer', !Ref 'LoadBalancer']
+      Port: !Ref ALBListenerPort
+      Protocol: !Ref ALBListenerProtocol
+
+# CREATE ALB LISTENER RULE
+  ECSLoadBalancerListenerRule:
+    Type: 'AWS::ElasticLoadBalancingV2::ListenerRule'
+    Condition: ExistingListener
+    Properties:
+      Actions:
+      - Type: forward
+        TargetGroupArn: !If [ ExistingTargetGroup, !Ref ECSLoadBalancerTargetGroup, !Ref ExistingTargetGroup ]
+      Conditions:
+      - Field: path-pattern
+        PathPatternConfig:
+          Values:
+          - /
+      ListenerArn:  !If [ ExistingListener, !Ref ECSLoadBalancerListener, !Ref ExistingListener]
+      Priority: 1
+
+  # FOR FUTURE ENHANCEMENTS
+  # OUTPUT WILL BE SERVED THRU SSM PARAMETER STORE
+  # ServiceNameOutput:
+  #   Type: AWS::SSM::Parameter
+  #   Properties:
+  #     Name: !Sub "${ApplicationName}-ServiceName"
+  #     Type: String
+  #     Value: !Ref ECSService
+  #     Description: !Sub "SSM Parameter for ${ApplicationName}"
+  #     # AllowedPattern: "^[a-zA-Z]{1,10}$"
+  #     Tags:
+  #       Environment: DEV
+
+Outputs:
+  ApplicationName:
+    Description: The cluster used to create the service.
+    Value: !Ref ApplicationName
+
+  ServiceName:
+    Description: The name of the Amazon ECS service, such as sample-webapp.
+    Value: !Ref ECSService

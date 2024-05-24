@@ -1,0 +1,50 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: |
+  Template to provision elastic container service in fargate
+  
+Parameters:
+  ECSClusterName:
+    Type: String
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC ID where the ECS cluster is launched
+
+  VpcCidrBlock:
+    Type: String
+    Description: The IPv4 address range of VPC, in CIDR format.
+
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: List of subnet IDs where the EC2 instances will be launched
+
+  AccessLogS3Bucket:
+    Type: String
+    Description: "The name of the S3 bucket for the access logs. This attribute is required if access logs are enabled."
+    Default: "None"
+
+Conditions:
+  AllowAccessLogs: !Not [ !Equals [ !Ref AccessLogS3Bucket, "None" ]]
+  
+Resources:
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Ref ECSClusterName
+      CapacityProviders:
+        - FARGATE
+        - FARGATE_SPOT
+      DefaultCapacityProviderStrategy:
+        - CapacityProvider: FARGATE
+          Weight: 1
+        - CapacityProvider: FARGATE_SPOT
+          Weight: 1
+      Configuration:
+        ExecuteCommandConfiguration:
+          Logging: DEFAULT
+
+Outputs:
+  EcsArn:
+    Description: The Amazon Resource Name (ARN) of the Amazon ECS cluster.
+    Value: !GetAtt ECSCluster.Arn
